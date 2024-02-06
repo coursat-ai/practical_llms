@@ -43,8 +43,6 @@ def calculate_movies_features(metadata):
         except Exception as e:
             print("Error: ", e, " in movie overview: ", overview)
             continue  
-        
-
     return np.array(embeddings)
 
 # Function to calculate user profile embeddings

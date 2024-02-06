@@ -21,3 +21,4 @@ tiktoken
 faiss-cpu
 youtube-transcript-api
 tqdm
+pytube

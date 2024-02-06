@@ -55,7 +55,6 @@ def stream_chat_response(user_message,
     if len(chat_history) > max_history_length:
         chat_history = chat_history[-max_history_length:]
 
-    print(chat_history)
     stream = client.chat.completions.create(
         messages=chat_history,
         model=model_name,
