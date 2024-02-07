@@ -30,7 +30,7 @@ def get_image_comment(image_url, prompt):
 # Streamlit app
 st.title('Ask me anything about an image!')
 
-# Input for image URL
+# Input for image URL: https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg
 image_url = st.text_input("Enter the URL of an image:", "")
 
 if image_url:

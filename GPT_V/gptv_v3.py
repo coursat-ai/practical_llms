@@ -25,7 +25,7 @@ def generate_image(prompt):
     image_url = response.data[0].url
     return image_url
 
-def get_image_comment(image_url):
+def get_image_comment(image_url):#https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg
     response = client.chat.completions.create(
         model="gpt-4-vision-preview",
         messages=[

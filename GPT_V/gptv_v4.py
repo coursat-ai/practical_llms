@@ -46,7 +46,7 @@ st.title('Ask me anything about an image!')
 image_url = st.text_input("Enter the URL of an image:", "")
 
 if image_url:
-    # Display the image from the URL
+    # Display the image from the URL: https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg
     st.image(image_url, caption='Image from URL', use_column_width=True)
     prompt = st.text_input('Enter a prompt for the image:', '')
     # Dropdown for voice selection
