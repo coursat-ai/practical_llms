@@ -1,6 +1,7 @@
 openai>=1.0.0
 streamlit
 transformers
+accelerate
 flask
 requests
 numpy
@@ -9,7 +10,6 @@ scikit-learn
 matplotlib
 seaborn
 python-dotenv
-transformers
 torch
 huggingface-hub
 streamlit_feedback
