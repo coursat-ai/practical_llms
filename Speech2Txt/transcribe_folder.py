@@ -228,18 +228,15 @@ if __name__ == "__main__":
     parser.add_argument("--input_folder", type=str, required=True, help="Path to the input folder containing MP4 files")
     parser.add_argument("--output_folder", type=str, required=True, help="Path to the output folder")
     parser.add_argument("--intermediate_outputs_folder", type=str, required=True, help="Path to the intermediate outputs folder")
-    parser.add_argument("--keep_intermediate_outputs", type=str, required=False, default=False, help="Flag to keep intermediate outputs folder")
+    parser.add_argument("--keep_intermediate_outputs", action='store_true', help="Flag to keep intermediate outputs folder")
 
     args = parser.parse_args()
     input_folder = args.input_folder
     output_folder = args.output_folder
     intermediate_outputs_folder = args.intermediate_outputs_folder
-
     keep_intermediate_outputs = args.keep_intermediate_outputs
     
-    
 
-    intermediate_outputs_folder = args.intermediate_outputs_folder
 
     if not os.path.isdir(input_folder):
         print(f"Input folder not found: {input_folder}")
