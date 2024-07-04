@@ -91,6 +91,10 @@ def main():
     if st.sidebar.button("Create Vector Database") and uploaded_file:
         with st.spinner("Reading file..."):
             text = extract_text_from_pdf(uploaded_file)
+            # Write the extracted text in temp file temp.txt
+            with open("temp.txt", "w", encoding='utf-8') as f:
+                f.write(text)
+            f.close()
             st.session_state.vec_db = create_vector_database(text)
             st.sidebar.text("PDF processed and vector database created.")
     if st.sidebar.button("Delete Vector Database") and st.session_state.vec_db:

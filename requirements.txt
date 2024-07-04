@@ -22,3 +22,6 @@ faiss-cpu
 youtube-transcript-api
 tqdm
 pytube
+azure-storage-blob
+moviepy
+pydub
