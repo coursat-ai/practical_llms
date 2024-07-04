@@ -18,8 +18,8 @@ client = OpenAI(
 )
 
 # Function to convert mp4 into mp3 extracting the audio
-def convert_mp4_to_mp3(file_path, output_folder):
-    new_file = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(file_path))[0]}.mp3")
+def convert_mp4_to_mp3(file_path, intermediate_outputs_folder):
+    new_file = os.path.join(intermediate_outputs_folder, f"{os.path.splitext(os.path.basename(file_path))[0]}.mp3")
     if os.path.exists(new_file):
         print(f"{new_file} already exists. Skipping conversion.")
         return new_file
@@ -43,20 +43,20 @@ def call_transcription_api(file_path):
     return transcript
 
 # Function to segment and transcribe audio
-def transcribe_audio(file_path, output_folder):
+def transcribe_audio(file_path, intermediate_outputs_folder):
     segment_times = []
     transcription_times = []
     
     file_size = os.path.getsize(file_path) / (1024 * 1024)  # Size in MB
     
     if file_size > 25:
-        audio_segments = segment_audio(file_path, segment_times, output_folder)
+        audio_segments = segment_audio(file_path, segment_times, intermediate_outputs_folder)
     else:
         audio_segments = [file_path]
     
     transcripts = []
     for idx, segment in enumerate(audio_segments):
-        segment_transcript_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(segment))[0]}_transcript.txt")
+        segment_transcript_path = os.path.join(intermediate_outputs_folder, f"{os.path.splitext(os.path.basename(segment))[0]}_transcript.txt")
         if os.path.exists(segment_transcript_path):
             print(f"Transcript for segment {idx+1} already exists. Skipping transcription.")
             with open(segment_transcript_path, "r", encoding="utf-8") as file:
@@ -81,7 +81,8 @@ def transcribe_audio(file_path, output_folder):
             transcription_times.append(transcription_time)
 
             # Save the transcript for each segment
-            save_transcript(segment_transcript_path, transcript)
+            if intermediate_outputs_folder:
+                save_transcript(segment_transcript_path, transcript)
             print(f"Transcript for segment {idx+1} saved to {segment_transcript_path}")
             print(f"Transcription time for segment {idx+1}: {transcription_time:.2f} seconds")
         
@@ -93,21 +94,11 @@ def transcribe_audio(file_path, output_folder):
 def call_postprocess_api(transcript):
     # Use GPT-4 to postprocess the transcript
     # Transcribe in the same language as the video
-    
-    '''
     system_prompt = """The following is a transcript of a video in Arabic. 
                     Please improve it and make it more readable. 
                     Do not summarize the content.
                     If a term is mentioned in English, keep it as is.
                     Provide your output in the same language of the video."""
-    '''
-    
-    system_prompt = """The following is a transcript of a video in Arabic. 
-                    Please improve it and make it more readable. 
-                    Do not summarize the content.
-                    If a term is mentioned in English, keep it as is.
-                    Provide your output in English."""
-    
     postprocessed_transcript = client.chat.completions.create(
         messages=[
             {
@@ -136,12 +127,12 @@ def postprocess(transcript, output_folder, file_path):
         save_transcript(postprocessed_transcript_path, postprocessed_transcript)
     return postprocessed_transcript
 
-def segment_audio(file_path, segment_times, output_folder, max_duration_ms=1200000):  # 20 minutes in milliseconds
+def segment_audio(file_path, segment_times, intermediate_outputs_folder, max_duration_ms=1200000):  # 20 minutes in milliseconds
     audio = AudioSegment.from_mp3(file_path)
     segments = []
 
     for i in range(0, len(audio), max_duration_ms):
-        segment_file_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(file_path))[0]}_{i // max_duration_ms}.mp3")
+        segment_file_path = os.path.join(intermediate_outputs_folder, f"{os.path.splitext(os.path.basename(file_path))[0]}_{i // max_duration_ms}.mp3")
         if os.path.exists(segment_file_path):
             print(f"Segment {i // max_duration_ms + 1} already exists. Skipping segmentation.")
             segments.append(segment_file_path)
@@ -164,23 +155,27 @@ def save_transcript(file_name, content):
     with open(file_name, "w", encoding="utf-8") as file:
         file.write(content)
 
-def main(file_path, output_folder):
+def transcribe_file(file_path, output_folder, intermediate_outputs_folder=None):
+    print(f"Transcribing {file_path}...")
     total_start_time = time.time()
     
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     
+    if intermediate_outputs_folder and not os.path.exists(intermediate_outputs_folder):
+        os.makedirs(intermediate_outputs_folder)
+    
     # Check if mp4 file, convert to mp3 if necessary
     if file_path.endswith(".mp4"):
         print("Converting mp4 to mp3...")
         audio_conversion_start_time = time.time()
-        file_path = convert_mp4_to_mp3(file_path, output_folder)
+        file_path = convert_mp4_to_mp3(file_path, intermediate_outputs_folder or output_folder)
         audio_conversion_end_time = time.time()
         print(f"Conversion time: {audio_conversion_end_time - audio_conversion_start_time:.2f} seconds")
         
     # Segment and transcribe the audio file
     transcription_start_time = time.time()
-    combined_transcript_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(file_path))[0]}_original_transcript.txt")
+    combined_transcript_path = os.path.join(intermediate_outputs_folder or output_folder, f"{os.path.splitext(os.path.basename(file_path))[0]}_original_transcript.txt")
     if os.path.exists(combined_transcript_path):
         print(f"Combined transcript already exists. Skipping transcription.")
         with open(combined_transcript_path, "r", encoding="utf-8") as file:
@@ -188,9 +183,10 @@ def main(file_path, output_folder):
         segment_times = []  # Segmentation times are not needed as segmentation is skipped
         transcription_times = []  # Transcription times are not needed as transcription is skipped
     else:
-        combined_transcript, segment_times, transcription_times = transcribe_audio(file_path, output_folder)
+        combined_transcript, segment_times, transcription_times = transcribe_audio(file_path, intermediate_outputs_folder or output_folder)
         transcription_end_time = time.time()
-        save_transcript(combined_transcript_path, combined_transcript)
+        if intermediate_outputs_folder:
+            save_transcript(combined_transcript_path, combined_transcript)
         
     # Postprocess the combined transcript
     postprocess_start_time = time.time()
@@ -217,20 +213,31 @@ def main(file_path, output_folder):
         print("Transcription not required")
     print(f"Postprocessing time: {postprocess_end_time - postprocess_start_time:.2f} seconds")
 
+def process_folder(input_folder, output_folder, intermediate_outputs_folder=None):
+    for file_name in os.listdir(input_folder):
+        if file_name.endswith(".mp4"):
+            file_path = os.path.join(input_folder, file_name)
+            transcribe_file(file_path, output_folder, intermediate_outputs_folder)
+
 '''
-python transcribe_file.py --file_path <path_to_audio_file> --output_folder <path_to_output_folder>
+python transcribe_folder.py --input_folder <path_to_input_folder> --output_folder <path_to_output_folder> [--intermediate_outputs_folder <path_to_intermediate_outputs_folder>]
 '''
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Transcribe and process audio.")
-    parser.add_argument("--file_path", type=str, required=True, help="Path to the audio file")
+    parser.add_argument("--input_folder", type=str, required=True, help="Path to the input folder containing MP4 files")
     parser.add_argument("--output_folder", type=str, required=True, help="Path to the output folder")
+    parser.add_argument("--intermediate_outputs_folder", type=str, required=False, help="Path to the intermediate outputs folder")
 
     args = parser.parse_args()
-    file_path = args.file_path
+    input_folder = args.input_folder
     output_folder = args.output_folder
+    intermediate_outputs_folder = args.intermediate_outputs_folder
 
-    if not os.path.isfile(file_path):
-        print(f"File not found: {file_path}")
+    if not os.path.isdir(input_folder):
+        print(f"Input folder not found: {input_folder}")
         sys.exit(1)
     
-    main(file_path, output_folder)
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+    
+    process_folder(input_folder, output_folder, intermediate_outputs_folder)
