@@ -1,13 +1,13 @@
 import os
 import sys
-import argparse
 import time
+import shutil
+import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
 from pathlib import Path
 from pydub import AudioSegment  # ffmpeg must be installed. For Windows: https://www.geeksforgeeks.org/how-to-install-ffmpeg-on-windows/
 from moviepy.editor import VideoFileClip
-import shutil
 
 # Load API key from .env file
 env_path = os.path.join("..", '.env')  # Adjust the path as necessary
@@ -22,7 +22,7 @@ client = OpenAI(
 def convert_mp4_to_mp3(file_path, intermediate_outputs_folder):
     new_file = os.path.join(intermediate_outputs_folder, f"{os.path.splitext(os.path.basename(file_path))[0]}.mp3")
     if os.path.exists(new_file):
-        print(f"{new_file} already exists. Skipping conversion.")
+        st.write(f"{new_file} already exists. Skipping conversion.")
         return new_file
     
     try:
@@ -30,8 +30,8 @@ def convert_mp4_to_mp3(file_path, intermediate_outputs_folder):
         audio.export(new_file, format="mp3")
         return new_file
     except Exception as e:
-        print(f"Error converting mp4 to mp3: {e}")
-        sys.exit(1)
+        st.write(f"Error converting mp4 to mp3: {e}")
+        return None
 
 # Function to call transcription API using OpenAI Whisper
 def call_transcription_api(file_path):
@@ -59,12 +59,12 @@ def transcribe_audio(file_path, intermediate_outputs_folder):
     for idx, segment in enumerate(audio_segments):
         segment_transcript_path = os.path.join(intermediate_outputs_folder, f"{os.path.splitext(os.path.basename(segment))[0]}_original_transcript.txt")
         if os.path.exists(segment_transcript_path):
-            print(f"Transcript for segment {idx+1} already exists. Skipping transcription.")
+            st.write(f"Transcript for segment {idx+1} already exists. Skipping transcription.")
             with open(segment_transcript_path, "r", encoding="utf-8") as file:
                 transcript = file.read()
         else:
             start_time = time.time()
-            print(f"Transcribing {segment}...")
+            st.write(f"Transcribing {segment}...")
 
             MAX_NUM_RETRIES = 3
 
@@ -73,8 +73,8 @@ def transcribe_audio(file_path, intermediate_outputs_folder):
                     transcript = call_transcription_api(segment)
                     break  # Break out of the loop if successful
                 except Exception as e:
-                    print(f"Error transcribing {segment}: {e}")
-                    print("Retrying...")
+                    st.write(f"Error transcribing {segment}: {e}")
+                    st.write("Retrying...")
             else:
                 raise Exception("All retries failed. Unable to transcribe segment.")
             end_time = time.time()
@@ -84,8 +84,8 @@ def transcribe_audio(file_path, intermediate_outputs_folder):
             # Save the transcript for each segment
             if intermediate_outputs_folder:
                 save_transcript(segment_transcript_path, transcript)
-                print(f"Transcript for segment {idx+1} saved to {segment_transcript_path}")
-            print(f"Transcription time for segment {idx+1}: {transcription_time:.2f} seconds")
+                st.write(f"Transcript for segment {idx+1} saved to {segment_transcript_path}")
+            st.write(f"Transcription time for segment {idx+1}: {transcription_time:.2f} seconds")
         
         transcripts.append(transcript)
     
@@ -120,7 +120,7 @@ def call_postprocess_api(transcript):
 def postprocess(transcript, output_folder, file_path):
     postprocessed_transcript_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(file_path))[0]}_post_processed_transcript.txt")
     if os.path.exists(postprocessed_transcript_path):
-        print(f"Postprocessed transcript already exists. Skipping postprocessing.")
+        st.write(f"Postprocessed transcript already exists. Skipping postprocessing.")
         with open(postprocessed_transcript_path, "r", encoding="utf-8") as file:
             postprocessed_transcript = file.read()
     else:
@@ -135,11 +135,11 @@ def segment_audio(file_path, segment_times, intermediate_outputs_folder, max_dur
     for i in range(0, len(audio), max_duration_ms):
         segment_file_path = os.path.join(intermediate_outputs_folder, f"{os.path.splitext(os.path.basename(file_path))[0]}_{i // max_duration_ms}.mp3")
         if os.path.exists(segment_file_path):
-            print(f"Segment {i // max_duration_ms + 1} already exists. Skipping segmentation.")
+            st.write(f"Segment {i // max_duration_ms + 1} already exists. Skipping segmentation.")
             segments.append(segment_file_path)
             continue
 
-        print(f"Processing segment {i // max_duration_ms + 1}... of {file_path}")
+        st.write(f"Processing segment {i // max_duration_ms + 1}... of {file_path}")
         start_time = time.time()  # Start timing for segment
         segment = audio[i:i + max_duration_ms]
         segment.export(segment_file_path, format="mp3")
@@ -148,7 +148,7 @@ def segment_audio(file_path, segment_times, intermediate_outputs_folder, max_dur
         
         segment_time = end_time - start_time
         segment_times.append(segment_time)
-        print(f"Segment {i // max_duration_ms + 1} time: {segment_time:.2f} seconds")  # Log segment time
+        st.write(f"Segment {i // max_duration_ms + 1} time: {segment_time:.2f} seconds")  # Log segment time
     
     return segments
 
@@ -157,7 +157,7 @@ def save_transcript(file_name, content):
         file.write(content)
 
 def transcribe_file(file_path, output_folder, intermediate_outputs_folder=None):
-    print(f"Transcribing {file_path}...")
+    st.write(f"Transcribing {file_path}...")
     total_start_time = time.time()
     
     if not os.path.exists(output_folder):
@@ -168,17 +168,17 @@ def transcribe_file(file_path, output_folder, intermediate_outputs_folder=None):
     
     # Check if mp4 file, convert to mp3 if necessary
     if file_path.endswith(".mp4"):
-        print("Converting mp4 to mp3...")
+        st.write("Converting mp4 to mp3...")
         audio_conversion_start_time = time.time()
         file_path = convert_mp4_to_mp3(file_path, intermediate_outputs_folder or output_folder)
         audio_conversion_end_time = time.time()
-        print(f"Conversion time: {audio_conversion_end_time - audio_conversion_start_time:.2f} seconds")
+        st.write(f"Conversion time: {audio_conversion_end_time - audio_conversion_start_time:.2f} seconds")
         
     # Segment and transcribe the audio file
     transcription_start_time = time.time()
     combined_transcript_path = os.path.join(intermediate_outputs_folder or output_folder, f"{os.path.splitext(os.path.basename(file_path))[0]}_original_transcript.txt")
     if os.path.exists(combined_transcript_path):
-        print(f"Combined transcript already exists. Skipping transcription.")
+        st.write(f"Combined transcript already exists. Skipping transcription.")
         with open(combined_transcript_path, "r", encoding="utf-8") as file:
             combined_transcript = file.read()
         segment_times = []  # Segmentation times are not needed as segmentation is skipped
@@ -191,28 +191,28 @@ def transcribe_file(file_path, output_folder, intermediate_outputs_folder=None):
         
     # Postprocess the combined transcript
     postprocess_start_time = time.time()
-    print("Postprocessing transcript...")
+    st.write("Postprocessing transcript...")
     postprocessed_transcript = postprocess(combined_transcript, output_folder, file_path)
     postprocess_end_time = time.time()
     
     total_end_time = time.time()
     
     # Print timing information
-    print("\nTiming Information:")
-    print(f"Total time: {total_end_time - total_start_time:.2f} seconds")
+    st.write("\nTiming Information:")
+    st.write(f"Total time: {total_end_time - total_start_time:.2f} seconds")
     if segment_times:
-        print(f"Segmentation time: {sum(segment_times):.2f} seconds")
+        st.write(f"Segmentation time: {sum(segment_times):.2f} seconds")
         for i, segment_time in enumerate(segment_times):
-            print(f"  Segment {i+1} time: {segment_time:.2f} seconds")
+            st.write(f"  Segment {i+1} time: {segment_time:.2f} seconds")
     else:
-        print("Segmentation not required")
+        st.write("Segmentation not required")
     if transcription_times:
-        print(f"Transcription time: {transcription_end_time - transcription_start_time:.2f} seconds")
+        st.write(f"Transcription time: {transcription_end_time - transcription_start_time:.2f} seconds")
         for i, transcription_time in enumerate(transcription_times):
-            print(f"  Transcription {i+1} time: {transcription_time:.2f} seconds")
+            st.write(f"  Transcription {i+1} time: {transcription_time:.2f} seconds")
     else:
-        print("Transcription not required")
-    print(f"Postprocessing time: {postprocess_end_time - postprocess_start_time:.2f} seconds")
+        st.write("Transcription not required")
+    st.write(f"Postprocessing time: {postprocess_end_time - postprocess_start_time:.2f} seconds")
 
 def process_folder(input_folder, output_folder, intermediate_outputs_folder=None):
     for file_name in os.listdir(input_folder):
@@ -220,48 +220,44 @@ def process_folder(input_folder, output_folder, intermediate_outputs_folder=None
             file_path = os.path.join(input_folder, file_name)
             transcribe_file(file_path, output_folder, intermediate_outputs_folder)
 
-'''
-python transcribe_folder.py --input_folder <path_to_input_folder> --output_folder <path_to_output_folder> --intermediate_outputs_folder <path_to_intermediate_outputs_folder> [--keep_intermediate_outputs <True/False>]    
-'''
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Transcribe and process audio.")
-    parser.add_argument("--input_folder", type=str, required=True, help="Path to the input folder containing MP4 files")
-    parser.add_argument("--output_folder", type=str, required=True, help="Path to the output folder")
-    parser.add_argument("--intermediate_outputs_folder", type=str, required=True, help="Path to the intermediate outputs folder")
-    parser.add_argument("--keep_intermediate_outputs", action='store_true', help="Flag to keep intermediate outputs folder")
+# Streamlit UI
+st.title("Video Transcriber")
 
-    args = parser.parse_args()
-    input_folder = args.input_folder
-    output_folder = args.output_folder
-    intermediate_outputs_folder = args.intermediate_outputs_folder
-    keep_intermediate_outputs = args.keep_intermediate_outputs
-    
+# Input fields for folder paths
+input_folder = st.text_input("Enter the input folder path:")
+output_folder = st.text_input("Enter the output folder path:")
+intermediate_outputs_folder = st.text_input("Enter the intermediate outputs folder path:")
+keep_intermediate_outputs = st.checkbox("Keep intermediate outputs", value=True)
 
+if st.button("Transcribe"):
+    if input_folder and output_folder and intermediate_outputs_folder:
+        if not os.path.isdir(input_folder):
+            st.write(f"Input folder not found: {input_folder}")
+        else:
+            if not os.path.exists(output_folder):
+                os.makedirs(output_folder)
+            if not os.path.exists(intermediate_outputs_folder):
+                os.makedirs(intermediate_outputs_folder)
+            
+            with st.spinner("Processing files..."):
+                process_folder(input_folder, output_folder, intermediate_outputs_folder)
 
-    if not os.path.isdir(input_folder):
-        print(f"Input folder not found: {input_folder}")
-        sys.exit(1)
-    
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-    
-    process_folder(input_folder, output_folder, intermediate_outputs_folder)
-
-    if not keep_intermediate_outputs and intermediate_outputs_folder:
-        try:
-            shutil.rmtree(intermediate_outputs_folder)
-            print(f"Deleted intermediate outputs folder: {intermediate_outputs_folder}")
-        except PermissionError as e:
-            print(f"PermissionError: {e}. Trying alternative deletion method.")
-            try:
-                # Aternative deletion method
-                for root, dirs, files in os.walk(intermediate_outputs_folder, topdown=False):
-                    for name in files:
-                        os.remove(os.path.join(root, name))
-                    for name in dirs:
-                        os.rmdir(os.path.join(root, name))
-                
-                os.rmdir(intermediate_outputs_folder)
-
-            except Exception as e:
-                print(f"Error deleting intermediate outputs folder: {e}")
+            if not keep_intermediate_outputs:
+                try:
+                    shutil.rmtree(intermediate_outputs_folder)
+                    st.write(f"Deleted intermediate outputs folder: {intermediate_outputs_folder}")
+                except PermissionError as e:
+                    st.write(f"PermissionError: {e}. Trying alternative deletion method.")
+                    try:
+                        # Alternative deletion method
+                        for root, dirs, files in os.walk(intermediate_outputs_folder, topdown=False):
+                            for name in files:
+                                os.remove(os.path.join(root, name))
+                            for name in dirs:
+                                os.rmdir(os.path.join(root, name))
+                        os.rmdir(intermediate_outputs_folder)
+                        st.write(f"Successfully deleted intermediate outputs folder using alternative method: {intermediate_outputs_folder}")
+                    except Exception as e:
+                        st.write(f"Error deleting intermediate outputs folder: {e}")
+    else:
+        st.write("Please enter all required folder paths.")
